@@ -1,0 +1,82 @@
+name: PR Slack Notification
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - review_requested
+      - closed
+  pull_request_review:
+    types:
+      - submitted
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ github.event.action == 'closed' && github.event.pull_request.merged == true && '#2eb67d' || github.event.action == 'submitted' && '#36c5f0' || '#ecb22e' }}",
+                  "blocks": [
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ github.event.action == 'opened' && '🟢 *PR Opened*' || github.event.action == 'reopened' && '🔄 *PR Reopened*' || github.event.action == 'ready_for_review' && '👀 *Ready For Review*' || github.event.action == 'review_requested' && '👀 *Review Requested*' || github.event.action == 'submitted' && '✅ *Review Submitted*' || github.event.pull_request.merged == true && '🎉 *PR Merged*' || '🔒 *PR Closed*' }}"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Repository:*\n${{ github.repository }}"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Author:*\n${{ github.event.pull_request.user.login }}"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*PR:*\n#${{ github.event.pull_request.number }}"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Branch:*\n${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "*Title:*\n${{ github.event.pull_request.title }}"
+                      }
+                    },
+                    {
+                      "type": "actions",
+                      "elements": [
+                        {
+                          "type": "button",
+                          "text": {
+                            "type": "plain_text",
+                            "text": "Open PR"
+                          },
+                          "url": "${{ github.event.pull_request.html_url }}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
