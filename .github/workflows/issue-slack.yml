@@ -29,7 +29,7 @@ jobs:
           if [ "$ACTION" = "opened" ]; then
             TITLE="🟢 Issue Opened"
             COLOR="good"
-            STATUS="새 Issue가 생성되었습니다."
+            STATUS="새로운 Issue가 생성되었습니다."
             ACTOR_LABEL="Author"
           elif [ "$ACTION" = "closed" ]; then
             TITLE="✅ Issue Closed"
@@ -40,7 +40,7 @@ jobs:
             TITLE="🔄 Issue Reopened"
             COLOR="#36c5f0"
             STATUS="닫혔던 Issue가 다시 열렸습니다."
-            ACTOR_LABEL="Actor"
+            ACTOR_LABEL="Reopener"
           elif [ "$ACTION" = "assigned" ]; then
             TITLE="👤 Issue Assigned"
             COLOR="warning"
@@ -110,7 +110,7 @@ jobs:
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*⚙️ Action*\n`${{ github.event.action }}`"
+                          "text": "*🏷️ Labels*\n`${{ join(github.event.issue.labels.*.name, ', ') || '없음' }}`"
                         }
                       ]
                     },
