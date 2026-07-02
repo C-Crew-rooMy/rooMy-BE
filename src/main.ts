@@ -1,7 +1,6 @@
 import './instrument';
 
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
-import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
