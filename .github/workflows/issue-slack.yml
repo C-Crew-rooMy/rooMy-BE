@@ -1,0 +1,141 @@
+name: Issue Slack Notification
+
+on:
+  issues:
+    types:
+      - opened
+      - closed
+      - reopened
+      - assigned
+      - unassigned
+      - labeled
+      - unlabeled
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set Slack Message
+        id: slack
+        run: |
+          ACTION="${{ github.event.action }}"
+
+          TITLE="🔔 Issue Event"
+          COLOR="#36c5f0"
+          STATUS="Issue 이벤트가 발생했습니다."
+          ACTOR_LABEL="Actor"
+
+          if [ "$ACTION" = "opened" ]; then
+            TITLE="🟢 Issue Opened"
+            COLOR="good"
+            STATUS="새 Issue가 생성되었습니다."
+            ACTOR_LABEL="Author"
+          elif [ "$ACTION" = "closed" ]; then
+            TITLE="✅ Issue Closed"
+            COLOR="good"
+            STATUS="Issue가 종료되었습니다."
+            ACTOR_LABEL="Closer"
+          elif [ "$ACTION" = "reopened" ]; then
+            TITLE="🔄 Issue Reopened"
+            COLOR="#36c5f0"
+            STATUS="닫혔던 Issue가 다시 열렸습니다."
+            ACTOR_LABEL="Actor"
+          elif [ "$ACTION" = "assigned" ]; then
+            TITLE="👤 Issue Assigned"
+            COLOR="warning"
+            STATUS="Issue 담당자가 지정되었습니다."
+            ACTOR_LABEL="Assigner"
+          elif [ "$ACTION" = "unassigned" ]; then
+            TITLE="👤 Issue Unassigned"
+            COLOR="warning"
+            STATUS="Issue 담당자가 해제되었습니다."
+            ACTOR_LABEL="Actor"
+          elif [ "$ACTION" = "labeled" ]; then
+            TITLE="🏷️ Issue Labeled"
+            COLOR="#36c5f0"
+            STATUS="Issue에 Label이 추가되었습니다."
+            ACTOR_LABEL="Actor"
+          elif [ "$ACTION" = "unlabeled" ]; then
+            TITLE="🏷️ Issue Unlabeled"
+            COLOR="#36c5f0"
+            STATUS="Issue에서 Label이 제거되었습니다."
+            ACTOR_LABEL="Actor"
+          fi
+
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "actor_label=$ACTOR_LABEL" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack Issue Event
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ steps.slack.outputs.color }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "${{ steps.slack.outputs.title }}"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "*${{ steps.slack.outputs.status }}*\n\n*📝 Issue Title*\n`${{ github.event.issue.title }}`"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "*📦 Repository*\n`${{ github.repository }}`"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*👤 ${{ steps.slack.outputs.actor_label }}*\n`${{ github.actor }}`"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*🔢 Issue Number*\n`#${{ github.event.issue.number }}`"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*⚙️ Action*\n`${{ github.event.action }}`"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "actions",
+                      "elements": [
+                        {
+                          "type": "button",
+                          "text": {
+                            "type": "plain_text",
+                            "text": "Issue 보기"
+                          },
+                          "url": "${{ github.event.issue.html_url }}"
+                        },
+                        {
+                          "type": "button",
+                          "text": {
+                            "type": "plain_text",
+                            "text": "Actions 보기"
+                          },
+                          "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
