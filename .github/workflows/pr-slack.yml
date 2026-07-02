@@ -17,74 +17,108 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set Slack message
+        id: slack
+        run: |
+          ACTION="${{ github.event.action }}"
+          MERGED="${{ github.event.pull_request.merged }}"
+          REVIEW_STATE="${{ github.event.review.state }}"
+
+          TITLE="🔔 Pull Request Event"
+          COLOR="#36c5f0"
+
+          if [ "$ACTION" = "opened" ]; then
+            TITLE="🟢 PR Opened"
+            COLOR="#2eb67d"
+          elif [ "$ACTION" = "reopened" ]; then
+            TITLE="🔄 PR Reopened"
+            COLOR="#36c5f0"
+          elif [ "$ACTION" = "ready_for_review" ]; then
+            TITLE="👀 Ready For Review"
+            COLOR="#ecb22e"
+          elif [ "$ACTION" = "review_requested" ]; then
+            TITLE="👀 Review Requested"
+            COLOR="#ecb22e"
+          elif [ "$ACTION" = "submitted" ]; then
+            if [ "$REVIEW_STATE" = "approved" ]; then
+              TITLE="✅ PR Approved"
+              COLOR="#2eb67d"
+            elif [ "$REVIEW_STATE" = "changes_requested" ]; then
+              TITLE="❌ Changes Requested"
+              COLOR="#e01e5a"
+            else
+              TITLE="💬 Review Commented"
+              COLOR="#36c5f0"
+            fi
+          elif [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then
+            TITLE="🎉 PR Merged"
+            COLOR="#2eb67d"
+          elif [ "$ACTION" = "closed" ]; then
+            TITLE="🔒 PR Closed"
+            COLOR="#e01e5a"
+          fi
+
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+
       - name: Send Slack notification
-        uses: slackapi/slack-github-action@v1.27.0
-        with:
-          payload: |
-            {
-              "text": "PR Slack Notification",
-              "attachments": [
-                {
-                  "color": "#36c5f0",
-                  "blocks": [
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "🔔 *PR Event Notification*"
-                      }
-                    },
-                    {
-                      "type": "section",
-                      "fields": [
-                        {
-                          "type": "mrkdwn",
-                          "text": "*Repository:*\n${{ github.repository }}"
-                        },
-                        {
-                          "type": "mrkdwn",
-                          "text": "*Author:*\n${{ github.event.pull_request.user.login }}"
-                        },
-                        {
-                          "type": "mrkdwn",
-                          "text": "*PR:*\n#${{ github.event.pull_request.number }}"
-                        },
-                        {
-                          "type": "mrkdwn",
-                          "text": "*Branch:*\n${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "*Action:*\n${{ github.event.action }}"
-                      }
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "*Title:*\n${{ github.event.pull_request.title }}"
-                      }
-                    },
-                    {
-                      "type": "actions",
-                      "elements": [
-                        {
-                          "type": "button",
-                          "text": {
-                            "type": "plain_text",
-                            "text": "Open PR"
-                          },
-                          "url": "${{ github.event.pull_request.html_url }}"
-                        }
-                      ]
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"attachments\": [
+              {
+                \"color\": \"${{ steps.slack.outputs.color }}\",
+                \"blocks\": [
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"${{ steps.slack.outputs.title }}\"
                     }
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"fields\": [
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Repository:*\n${{ github.repository }}\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Author:*\n${{ github.event.pull_request.user.login }}\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*PR:*\n#${{ github.event.pull_request.number }}\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Branch:*\n${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}\"
+                      }
+                    ]
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Title:*\n${{ github.event.pull_request.title }}\"
+                    }
+                  },
+                  {
+                    \"type\": \"actions\",
+                    \"elements\": [
+                      {
+                        \"type\": \"button\",
+                        \"text\": {
+                          \"type\": \"plain_text\",
+                          \"text\": \"Open PR\"
+                        },
+                        \"url\": \"${{ github.event.pull_request.html_url }}\"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }" \
+          ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
