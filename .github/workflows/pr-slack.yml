@@ -17,20 +17,100 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send Slack notification
-        uses: slackapi/slack-github-action@v1.27.0
+      - name: Set Slack Message
+        id: slack
+        run: |
+          ACTION="${{ github.event.action }}"
+          MERGED="${{ github.event.pull_request.merged }}"
+          REVIEW_STATE="${{ github.event.review.state }}"
+          ACTOR="${{ github.actor }}"
+
+          TITLE="🔔 PR Event"
+          COLOR="#36c5f0"
+          STATUS="Pull Request 이벤트가 발생했습니다."
+          ACTOR_LABEL="Actor"
+
+          if [ "$ACTION" = "opened" ]; then
+            TITLE="🟢 PR Opened"
+            COLOR="good"
+            STATUS="새 Pull Request가 생성되었습니다."
+            ACTOR_LABEL="Author"
+          elif [ "$ACTION" = "reopened" ]; then
+            TITLE="🔄 PR Reopened"
+            COLOR="#36c5f0"
+            STATUS="닫혔던 Pull Request가 다시 열렸습니다."
+            ACTOR_LABEL="Actor"
+          elif [ "$ACTION" = "ready_for_review" ]; then
+            TITLE="👀 Ready For Review"
+            COLOR="warning"
+            STATUS="Draft PR이 리뷰 가능한 상태로 변경되었습니다."
+            ACTOR_LABEL="Author"
+          elif [ "$ACTION" = "review_requested" ]; then
+            TITLE="👀 Review Requested"
+            COLOR="warning"
+            STATUS="리뷰 요청이 등록되었습니다."
+            ACTOR_LABEL="Requester"
+          elif [ "$ACTION" = "submitted" ]; then
+            ACTOR_LABEL="Reviewer"
+
+            if [[ "$ACTOR" == *"coderabbit"* ]] || [[ "$ACTOR" == *"CodeRabbit"* ]]; then
+              TITLE="🤖 CodeRabbit Review"
+              COLOR="#36c5f0"
+              STATUS="CodeRabbit이 자동 코드 리뷰를 등록했습니다."
+              ACTOR_LABEL="Reviewer Bot"
+            elif [ "$REVIEW_STATE" = "approved" ]; then
+              TITLE="✅ PR Approved"
+              COLOR="good"
+              STATUS="Pull Request가 승인되었습니다."
+            elif [ "$REVIEW_STATE" = "changes_requested" ]; then
+              TITLE="🔴 Changes Requested"
+              COLOR="danger"
+              STATUS="변경 요청이 등록되었습니다."
+            else
+              TITLE="💬 Review Commented"
+              COLOR="#36c5f0"
+              STATUS="리뷰 코멘트가 등록되었습니다."
+            fi
+          elif [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then
+            TITLE="🎉 PR Merged"
+            COLOR="good"
+            STATUS="Pull Request가 머지되었습니다."
+            ACTOR_LABEL="Merger"
+          elif [ "$ACTION" = "closed" ]; then
+            TITLE="🔒 PR Closed"
+            COLOR="danger"
+            STATUS="Pull Request가 머지 없이 종료되었습니다."
+            ACTOR_LABEL="Actor"
+          fi
+
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "actor_label=$ACTOR_LABEL" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack PR Event
+        uses: slackapi/slack-github-action@v3.0.3
         with:
+          webhook: ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "attachments": [
                 {
-                  "color": "${{ github.event.action == 'closed' && github.event.pull_request.merged == true && '#2eb67d' || github.event.action == 'submitted' && '#36c5f0' || '#ecb22e' }}",
+                  "color": "${{ steps.slack.outputs.color }}",
                   "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "${{ steps.slack.outputs.title }}"
+                      }
+                    },
                     {
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ github.event.action == 'opened' && '🟢 *PR Opened*' || github.event.action == 'reopened' && '🔄 *PR Reopened*' || github.event.action == 'ready_for_review' && '👀 *Ready For Review*' || github.event.action == 'review_requested' && '👀 *Review Requested*' || github.event.action == 'submitted' && '✅ *Review Submitted*' || github.event.pull_request.merged == true && '🎉 *PR Merged*' || '🔒 *PR Closed*' }}"
+                        "text": "*${{ steps.slack.outputs.status }}*\n\n*📝 PR Title*\n`${{ github.event.pull_request.title }}`"
                       }
                     },
                     {
@@ -38,28 +118,21 @@ jobs:
                       "fields": [
                         {
                           "type": "mrkdwn",
-                          "text": "*Repository:*\n${{ github.repository }}"
+                          "text": "*📦 Repository*\n`${{ github.repository }}`"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*Author:*\n${{ github.event.pull_request.user.login }}"
+                          "text": "*👤 ${{ steps.slack.outputs.actor_label }}*\n`${{ github.actor }}`"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*PR:*\n#${{ github.event.pull_request.number }}"
+                          "text": "*🌿 Branch*\n`${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}`"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*Branch:*\n${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}"
+                          "text": "*🔢 PR Number*\n`#${{ github.event.pull_request.number }}`"
                         }
                       ]
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "*Title:*\n${{ github.event.pull_request.title }}"
-                      }
                     },
                     {
                       "type": "actions",
@@ -68,9 +141,17 @@ jobs:
                           "type": "button",
                           "text": {
                             "type": "plain_text",
-                            "text": "Open PR"
+                            "text": "PR 보기"
                           },
                           "url": "${{ github.event.pull_request.html_url }}"
+                        },
+                        {
+                          "type": "button",
+                          "text": {
+                            "type": "plain_text",
+                            "text": "Actions 보기"
+                          },
+                          "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                         }
                       ]
                     }
@@ -78,5 +159,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
