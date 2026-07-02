@@ -1,0 +1,45 @@
+services:
+  # 백엔드(NestJS) 컨테이너 설정
+  backend:
+    # 현재 디렉터리의 Dockerfile을 기준으로 이미지를 생성
+    # (docker build -t roomy-be . 와 동일한 역할)
+    build: .
+
+    # 생성된 컨테이너의 이름을 지정
+    container_name: roomy-backend
+
+    # 호스트(Local PC)와 컨테이너의 포트를 연결
+    ports:
+      - '3000:3000'
+
+    # .env 파일에 정의된 환경변수를 컨테이너에 전달
+    env_file:
+      - .env
+
+    # backend 실행 전에 postgres 컨테이너를 먼저 실행
+    depends_on:
+      - postgres
+
+  # PostgreSQL 데이터베이스 컨테이너 설정
+  postgres:
+    # PostgreSQL 공식 이미지를 사용
+    image: postgres:16
+
+    # 생성된 DB 컨테이너의 이름을 지정
+    container_name: roomy-postgres
+
+    # .env 파일에 정의된 환경변수를 PostgreSQL 컨테이너에 전달
+    env_file:
+      - .env
+
+    # 호스트(Local PC)의 5432 포트와 컨테이너의 5432 포트를 연결
+    ports:
+      - '5432:5432'
+
+    # DB 데이터가 컨테이너 삭제 후에도 유지되도록 볼륨을 연결
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+# Docker가 관리하는 named volume을 정의
+volumes:
+  postgres-data:

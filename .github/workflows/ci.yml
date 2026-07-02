@@ -1,0 +1,114 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma Generate
+        run: pnpm prisma generate
+
+      - name: Run Test
+        run: pnpm test
+
+      - name: Run Build
+        run: pnpm build
+
+      - name: Notify Slack Success
+        if: success()
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "good",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": { "type": "plain_text", "text": "🟢 Backend CI Success" }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "*📦 Repository*\n`${{ github.repository }}`\n\n*🌿 Branch*\n`${{ github.ref_name }}`\n\n*👤 Author*\n`${{ github.actor }}`\n\n*📝 Commit*\n`${{ github.event.head_commit.message || github.event.pull_request.title }}`\n\n*🔢 Run Number*\n`#${{ github.run_number }}`\n\n*⚙️ Workflow*\n`${{ github.workflow }}`"
+                      }
+                    },
+                    {
+                      "type": "actions",
+                      "elements": [
+                        {
+                          "type": "button",
+                          "text": { "type": "plain_text", "text": "GitHub Actions 보기" },
+                          "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+
+      - name: Notify Slack Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "danger",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": { "type": "plain_text", "text": "🔴 Backend CI Failed" }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "*📦 Repository*\n`${{ github.repository }}`\n\n*🌿 Branch*\n`${{ github.ref_name }}`\n\n*👤 Author*\n`${{ github.actor }}`\n\n*📝 Commit*\n`${{ github.event.head_commit.message || github.event.pull_request.title }}`\n\n*🔢 Run Number*\n`#${{ github.run_number }}`\n\n*⚙️ Workflow*\n`${{ github.workflow }}`"
+                      }
+                    },
+                    {
+                      "type": "actions",
+                      "elements": [
+                        {
+                          "type": "button",
+                          "text": { "type": "plain_text", "text": "실패 로그 확인하기" },
+                          "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
