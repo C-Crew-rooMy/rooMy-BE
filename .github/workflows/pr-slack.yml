@@ -26,25 +26,32 @@ jobs:
 
           TITLE="🔔 PR Event"
           COLOR="#36c5f0"
-          STATUS="PR 이벤트가 발생했습니다."
+          STATUS="Pull Request 이벤트가 발생했습니다."
+          ACTOR_LABEL="Actor"
 
           if [ "$ACTION" = "opened" ]; then
             TITLE="🟢 PR Opened"
             COLOR="good"
             STATUS="새 Pull Request가 생성되었습니다."
+            ACTOR_LABEL="Author"
           elif [ "$ACTION" = "reopened" ]; then
             TITLE="🔄 PR Reopened"
             COLOR="#36c5f0"
             STATUS="닫혔던 Pull Request가 다시 열렸습니다."
+            ACTOR_LABEL="Actor"
           elif [ "$ACTION" = "ready_for_review" ]; then
             TITLE="👀 Ready For Review"
             COLOR="warning"
             STATUS="Draft PR이 리뷰 가능한 상태로 변경되었습니다."
+            ACTOR_LABEL="Author"
           elif [ "$ACTION" = "review_requested" ]; then
             TITLE="👀 Review Requested"
             COLOR="warning"
             STATUS="리뷰 요청이 등록되었습니다."
+            ACTOR_LABEL="Requester"
           elif [ "$ACTION" = "submitted" ]; then
+            ACTOR_LABEL="Reviewer"
+
             if [ "$REVIEW_STATE" = "approved" ]; then
               TITLE="✅ PR Approved"
               COLOR="good"
@@ -62,15 +69,18 @@ jobs:
             TITLE="🎉 PR Merged"
             COLOR="good"
             STATUS="Pull Request가 머지되었습니다."
+            ACTOR_LABEL="Merger"
           elif [ "$ACTION" = "closed" ]; then
             TITLE="🔒 PR Closed"
             COLOR="danger"
             STATUS="Pull Request가 머지 없이 종료되었습니다."
+            ACTOR_LABEL="Actor"
           fi
 
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "color=$COLOR" >> $GITHUB_OUTPUT
           echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "actor_label=$ACTOR_LABEL" >> $GITHUB_OUTPUT
 
       - name: Notify Slack PR Event
         uses: slackapi/slack-github-action@v3.0.3
@@ -94,7 +104,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "*${{ steps.slack.outputs.status }}*"
+                        "text": "*${{ steps.slack.outputs.status }}*\n\n*📝 PR Title*\n`${{ github.event.pull_request.title }}`"
                       }
                     },
                     {
@@ -102,28 +112,21 @@ jobs:
                       "fields": [
                         {
                           "type": "mrkdwn",
-                          "text": "*📦 Repository:*\n`${{ github.repository }}`"
+                          "text": "*📦 Repository*\n`${{ github.repository }}`"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*👤 Actor:*\n`${{ github.actor }}`"
+                          "text": "*👤 ${{ steps.slack.outputs.actor_label }}*\n`${{ github.actor }}`"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*🌿 Branch:*\n`${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}`"
+                          "text": "*🌿 Branch*\n`${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}`"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*🔢 PR Number:*\n`#${{ github.event.pull_request.number }}`"
+                          "text": "*🔢 PR Number*\n`#${{ github.event.pull_request.number }}`"
                         }
                       ]
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "*📝 Pull Request:*\n`${{ github.event.pull_request.title }}`"
-                      }
                     },
                     {
                       "type": "actions",
