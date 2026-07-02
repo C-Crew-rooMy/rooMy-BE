@@ -22,15 +22,16 @@ jobs:
         with:
           payload: |
             {
+              "text": "PR Slack Notification",
               "attachments": [
                 {
-                  "color": "${{ github.event.action == 'closed' && github.event.pull_request.merged == true && '#2eb67d' || github.event.action == 'submitted' && '#36c5f0' || '#ecb22e' }}",
+                  "color": "#36c5f0",
                   "blocks": [
                     {
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ github.event.action == 'opened' && '🟢 *PR Opened*' || github.event.action == 'reopened' && '🔄 *PR Reopened*' || github.event.action == 'ready_for_review' && '👀 *Ready For Review*' || github.event.action == 'review_requested' && '👀 *Review Requested*' || github.event.action == 'submitted' && '✅ *Review Submitted*' || github.event.pull_request.merged == true && '🎉 *PR Merged*' || '🔒 *PR Closed*' }}"
+                        "text": "🔔 *PR Event Notification*"
                       }
                     },
                     {
@@ -53,6 +54,13 @@ jobs:
                           "text": "*Branch:*\n${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}"
                         }
                       ]
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "*Action:*\n${{ github.event.action }}"
+                      }
                     },
                     {
                       "type": "section",
