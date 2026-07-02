@@ -23,6 +23,7 @@ jobs:
           ACTION="${{ github.event.action }}"
           MERGED="${{ github.event.pull_request.merged }}"
           REVIEW_STATE="${{ github.event.review.state }}"
+          ACTOR="${{ github.actor }}"
 
           TITLE="🔔 PR Event"
           COLOR="#36c5f0"
@@ -52,7 +53,12 @@ jobs:
           elif [ "$ACTION" = "submitted" ]; then
             ACTOR_LABEL="Reviewer"
 
-            if [ "$REVIEW_STATE" = "approved" ]; then
+            if [[ "$ACTOR" == *"coderabbit"* ]] || [[ "$ACTOR" == *"CodeRabbit"* ]]; then
+              TITLE="🤖 CodeRabbit Review"
+              COLOR="#36c5f0"
+              STATUS="CodeRabbit이 자동 코드 리뷰를 등록했습니다."
+              ACTOR_LABEL="Reviewer Bot"
+            elif [ "$REVIEW_STATE" = "approved" ]; then
               TITLE="✅ PR Approved"
               COLOR="good"
               STATUS="Pull Request가 승인되었습니다."
