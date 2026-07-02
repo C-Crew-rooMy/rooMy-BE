@@ -17,108 +17,89 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set Slack message
+      - name: Set Slack Message
         id: slack
         run: |
           ACTION="${{ github.event.action }}"
           MERGED="${{ github.event.pull_request.merged }}"
           REVIEW_STATE="${{ github.event.review.state }}"
 
-          TITLE="🔔 Pull Request Event"
-          COLOR="#36c5f0"
+          TITLE="🔔 PR Event"
+          COLOR="good"
 
           if [ "$ACTION" = "opened" ]; then
             TITLE="🟢 PR Opened"
-            COLOR="#2eb67d"
+            COLOR="good"
           elif [ "$ACTION" = "reopened" ]; then
             TITLE="🔄 PR Reopened"
             COLOR="#36c5f0"
           elif [ "$ACTION" = "ready_for_review" ]; then
             TITLE="👀 Ready For Review"
-            COLOR="#ecb22e"
+            COLOR="warning"
           elif [ "$ACTION" = "review_requested" ]; then
             TITLE="👀 Review Requested"
-            COLOR="#ecb22e"
+            COLOR="warning"
           elif [ "$ACTION" = "submitted" ]; then
             if [ "$REVIEW_STATE" = "approved" ]; then
               TITLE="✅ PR Approved"
-              COLOR="#2eb67d"
+              COLOR="good"
             elif [ "$REVIEW_STATE" = "changes_requested" ]; then
-              TITLE="❌ Changes Requested"
-              COLOR="#e01e5a"
+              TITLE="🔴 Changes Requested"
+              COLOR="danger"
             else
               TITLE="💬 Review Commented"
               COLOR="#36c5f0"
             fi
           elif [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then
             TITLE="🎉 PR Merged"
-            COLOR="#2eb67d"
+            COLOR="good"
           elif [ "$ACTION" = "closed" ]; then
             TITLE="🔒 PR Closed"
-            COLOR="#e01e5a"
+            COLOR="danger"
           fi
 
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "color=$COLOR" >> $GITHUB_OUTPUT
 
-      - name: Send Slack notification
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-          --data "{
-            \"attachments\": [
-              {
-                \"color\": \"${{ steps.slack.outputs.color }}\",
-                \"blocks\": [
-                  {
-                    \"type\": \"section\",
-                    \"text\": {
-                      \"type\": \"mrkdwn\",
-                      \"text\": \"${{ steps.slack.outputs.title }}\"
-                    }
-                  },
-                  {
-                    \"type\": \"section\",
-                    \"fields\": [
-                      {
-                        \"type\": \"mrkdwn\",
-                        \"text\": \"*Repository:*\n${{ github.repository }}\"
-                      },
-                      {
-                        \"type\": \"mrkdwn\",
-                        \"text\": \"*Author:*\n${{ github.event.pull_request.user.login }}\"
-                      },
-                      {
-                        \"type\": \"mrkdwn\",
-                        \"text\": \"*PR:*\n#${{ github.event.pull_request.number }}\"
-                      },
-                      {
-                        \"type\": \"mrkdwn\",
-                        \"text\": \"*Branch:*\n${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}\"
+      - name: Notify Slack PR Event
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ steps.slack.outputs.color }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "${{ steps.slack.outputs.title }}"
                       }
-                    ]
-                  },
-                  {
-                    \"type\": \"section\",
-                    \"text\": {
-                      \"type\": \"mrkdwn\",
-                      \"text\": \"*Title:*\n${{ github.event.pull_request.title }}\"
-                    }
-                  },
-                  {
-                    \"type\": \"actions\",
-                    \"elements\": [
-                      {
-                        \"type\": \"button\",
-                        \"text\": {
-                          \"type\": \"plain_text\",
-                          \"text\": \"Open PR\"
-                        },
-                        \"url\": \"${{ github.event.pull_request.html_url }}\"
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "*📦 Repository*\n`${{ github.repository }}`\n\n*🌿 Branch*\n`${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}`\n\n*👤 Author*\n`${{ github.event.pull_request.user.login }}`\n\n*📝 PR Title*\n`${{ github.event.pull_request.title }}`\n\n*🔢 PR Number*\n`#${{ github.event.pull_request.number }}`\n\n*⚙️ Action*\n`${{ github.event.action }}`"
                       }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }" \
-          ${{ secrets.SLACK_GITHUB_WEBHOOK_URL }}
+                    },
+                    {
+                      "type": "actions",
+                      "elements": [
+                        {
+                          "type": "button",
+                          "text": {
+                            "type": "plain_text",
+                            "text": "PR 보기"
+                          },
+                          "url": "${{ github.event.pull_request.html_url }}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
