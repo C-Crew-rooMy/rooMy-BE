@@ -37,7 +37,18 @@ jobs:
             pm2 restart roomy-backend
             pm2 save
 
-            curl -f http://localhost:3000
+            for i in {1..10}; do
+              if curl -f http://localhost:3000; then
+                echo "Server is running"
+                exit 0
+              fi
+
+              echo "Waiting for server to start..."
+              sleep 3
+            done
+
+            echo "Server failed to respond"
+            exit 1
 
       - name: Notify Slack - Success
         if: success()
