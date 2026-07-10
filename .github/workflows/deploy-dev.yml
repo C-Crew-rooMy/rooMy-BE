@@ -38,16 +38,19 @@ jobs:
             pm2 save
 
             for i in {1..10}; do
-              if curl -f http://localhost:3000; then
-                echo "Server is running"
+              if curl -fsS http://localhost:3000/health > /dev/null; then
+                echo "Health check passed"
                 exit 0
               fi
 
-              echo "Waiting for server to start..."
+              echo "Waiting for application startup... ($i/10)"
               sleep 3
             done
 
-            echo "Server failed to respond"
+            echo "Health check failed"
+
+            pm2 logs --lines 100 --nostream
+
             exit 1
 
       - name: Notify Slack - Success
