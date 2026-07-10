@@ -5,8 +5,11 @@ import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+import { WinstonModule } from 'nest-winston';
+import { winstonLoggerOptions } from './common/logger/winston.logger';
+
 @Module({
-  imports: [],
+  imports: [WinstonModule.forRoot(winstonLoggerOptions)],
   controllers: [AppController],
   providers: [
     AppService,
