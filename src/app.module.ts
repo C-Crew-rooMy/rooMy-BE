@@ -10,13 +10,18 @@ import { WinstonModule } from 'nest-winston';
 import { winstonLoggerOptions } from './common/logger/winston.logger';
 import { S3Module } from './common/s3/s3.module';
 
+import { AuthModule } from './auth/auth.module';
+import { PrismaModule } from './prisma/prisma.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
     WinstonModule.forRoot(winstonLoggerOptions),
+    PrismaModule,
     S3Module,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
