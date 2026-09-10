@@ -96,6 +96,9 @@ model Post {
   images             PostImage[]
   postRoutine        PostRoutine?
 
+  /// Book 카테고리 게시글에 연결된 도서 판본 정보
+  postBook PostBook?
+
   @@index([userId])
   @@index([categoryId])
   @@map("posts")
@@ -224,4 +227,278 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+/// Open Library 도서 데이터 동기화 작업의 상태
+enum BookSyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+
+  @@map("book_sync_status")
+}
+
+/// Open Library 도서 데이터 동기화 방식
+enum BookSyncType {
+  /// Dump 기반 전체 적재 또는 정합성 보정
+  FULL
+
+  /// 변경된 데이터만 반영하는 증분 동기화
+  INCREMENTAL
+
+  @@map("book_sync_type")
+}
+
+/// Open Library 동기화 대상 데이터 종류
+enum BookSyncTarget {
+  WORK
+  EDITION
+  AUTHOR
+
+  @@map("book_sync_target")
+}
+
+/// Open Library의 논리적인 작품(Work)을 저장하는 테이블
+/// 하나의 Work는 여러 출판 판본(BookEdition)을 가질 수 있다.
+model BookWork {
+  id BigInt @id @default(autoincrement())
+
+  /// Open Library에서 사용하는 Work 고유 Key
+  /// 예: /works/OL45804W
+  openLibraryKey String @unique @map("open_library_key") @db.VarChar(100)
+
+  /// Open Library Work 데이터의 revision 값
+  /// Dump 동기화 시 데이터 변경 여부를 판단하는 데 사용할 수 있다.
+  revision Int
+
+  /// Open Library에서 해당 Work가 마지막으로 수정된 시각
+  sourceModifiedAt DateTime @map("source_modified_at")
+
+  /// 작품 제목
+  title String @db.VarChar(500)
+
+  /// 작품 부제목
+  subtitle String? @db.VarChar(500)
+
+  /// 작품 설명
+  /// Open Library description은 문자열 또는 text block 형태이므로
+  /// Import 과정에서 문자열로 정규화하여 저장한다.
+  description String? @db.Text
+
+  /// 작품의 최초 출판일 원본 값
+  /// Open Library에서 연도/연월/전체 날짜 등 다양한 형태로 제공될 수 있어 문자열로 저장한다.
+  firstPublishDate String? @map("first_publish_date") @db.VarChar(100)
+
+  /// Open Library Work에 등록된 표지 ID 목록
+  /// Work 자체의 대표 표지가 필요할 경우 사용할 수 있다.
+  coverIds Int[] @default([]) @map("cover_ids")
+
+  /// RooMy DB에 최초 저장된 시각
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// RooMy DB에서 마지막으로 수정된 시각
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Open Library 데이터가 마지막으로 동기화된 시각
+  syncedAt DateTime @default(now()) @map("synced_at")
+
+  /// 해당 작품에 속한 출판 판본 목록
+  editions BookEdition[]
+
+  /// 작품과 저자의 N:M 관계
+  authors BookWorkAuthor[]
+
+  @@index([title])
+  @@index([sourceModifiedAt])
+  @@map("book_works")
+}
+
+/// Open Library의 특정 출판 판본(Edition)을 저장하는 테이블
+/// 같은 Work라도 언어, ISBN, 출판사, 표지 등이 다른 판본을 각각 관리한다.
+model BookEdition {
+  id BigInt @id @default(autoincrement())
+
+  /// 이 Edition이 속한 Open Library Work의 내부 DB ID
+  /// Open Library Edition 스키마상 하나의 Edition은 하나의 Work를 참조한다.
+  workId BigInt @map("work_id")
+
+  /// Open Library에서 사용하는 Edition 고유 Key
+  /// 예: /books/OL7353617M
+  openLibraryKey String @unique @map("open_library_key") @db.VarChar(100)
+
+  /// Open Library Edition 데이터의 revision 값
+  revision Int
+
+  /// Open Library에서 해당 Edition이 마지막으로 수정된 시각
+  sourceModifiedAt DateTime @map("source_modified_at")
+
+  /// 해당 판본의 제목
+  title String @db.VarChar(500)
+
+  /// 해당 판본의 부제목
+  subtitle String? @db.VarChar(500)
+
+  /// ISBN-10 목록
+  /// Open Library 원본 데이터가 배열이므로 배열 형태로 유지한다.
+  isbn10 String[] @default([]) @map("isbn_10")
+
+  /// ISBN-13 목록
+  /// Open Library 원본 데이터가 배열이므로 배열 형태로 유지한다.
+  isbn13 String[] @default([]) @map("isbn_13")
+
+  /// 해당 판본의 출판사 목록
+  publishers String[] @default([])
+
+  /// 출판일 원본 값
+  /// 예: "2017", "2017-07", "2017-07-11"
+  publishDate String? @map("publish_date") @db.VarChar(100)
+
+  /// Open Library 언어 Key 목록
+  /// 예: /languages/kor, /languages/eng
+  languages String[] @default([])
+
+  /// Open Library Covers API에서 사용할 표지 ID 목록
+  coverIds Int[] @default([]) @map("cover_ids")
+
+  /// RooMy DB에 최초 저장된 시각
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// RooMy DB에서 마지막으로 수정된 시각
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Open Library 데이터가 마지막으로 동기화된 시각
+  syncedAt DateTime @default(now()) @map("synced_at")
+
+  /// 해당 Edition이 속한 작품
+  work BookWork @relation(fields: [workId], references: [id], onDelete: Restrict)
+
+  /// 이 Edition을 선택한 RooMy Book 게시글 관계 목록
+  postBooks PostBook[]
+
+  @@index([workId])
+  @@index([title])
+  @@index([sourceModifiedAt])
+  @@map("book_editions")
+}
+
+/// Open Library 저자(Author) 정보를 저장하는 테이블
+model BookAuthor {
+  id BigInt @id @default(autoincrement())
+
+  /// Open Library에서 사용하는 Author 고유 Key
+  /// 예: /authors/OL23919A
+  openLibraryKey String @unique @map("open_library_key") @db.VarChar(100)
+
+  /// Open Library Author 데이터의 revision 값
+  revision Int
+
+  /// Open Library에서 해당 Author가 마지막으로 수정된 시각
+  sourceModifiedAt DateTime @map("source_modified_at")
+
+  /// 저자 이름
+  name String @db.VarChar(255)
+
+  /// RooMy DB에 최초 저장된 시각
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// RooMy DB에서 마지막으로 수정된 시각
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Open Library 데이터가 마지막으로 동기화된 시각
+  syncedAt DateTime @default(now()) @map("synced_at")
+
+  /// 저자가 참여한 작품과의 N:M 관계
+  works BookWorkAuthor[]
+
+  @@index([name])
+  @@index([sourceModifiedAt])
+  @@map("book_authors")
+}
+
+/// Open Library 작품(Work)과 저자(Author)의 N:M 관계를 저장하는 중간 테이블
+/// 한 작품에 여러 저자가 참여하거나 한 저자가 여러 작품을 가질 수 있다.
+model BookWorkAuthor {
+  /// 연결할 작품의 내부 DB ID
+  workId BigInt @map("work_id")
+
+  /// 연결할 저자의 내부 DB ID
+  authorId BigInt @map("author_id")
+
+  /// 연결된 작품
+  work BookWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  /// 연결된 저자
+  author BookAuthor @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  /// 동일한 Work-Author 관계의 중복 생성을 방지한다.
+  @@id([workId, authorId])
+  @@index([authorId])
+  @@map("book_work_authors")
+}
+
+/// RooMy Book 카테고리 게시글과 사용자가 선택한 도서 판본을 연결하는 테이블
+/// 공통 Post 테이블에 Book 전용 컬럼을 추가하지 않고 도메인별 확장 테이블로 분리한다.
+model PostBook {
+  id BigInt @id @default(autoincrement())
+
+  /// 연결된 RooMy 게시글 ID
+  /// 게시글 하나에는 하나의 Book Edition만 연결할 수 있다.
+  postId BigInt @unique @map("post_id")
+
+  /// 사용자가 작품 검색 화면에서 선택한 특정 Edition의 내부 DB ID
+  /// 선택 당시의 표지, ISBN, 출판사 등의 판본 정보를 유지하기 위해 Work가 아닌 Edition을 참조한다.
+  editionId BigInt @map("edition_id")
+
+  /// Book 게시글 연결 정보가 생성된 시각
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// 게시글 삭제 시 Book 연결 정보도 함께 삭제한다.
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  /// 게시글에서 사용 중인 Edition이 임의로 삭제되지 않도록 제한한다.
+  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Restrict)
+
+  @@index([editionId])
+  @@map("post_books")
+}
+
+/// Open Library 데이터 Import / Sync 실행 이력을 저장하는 테이블
+/// 동기화 성공 여부와 처리 건수를 기록해 운영 중 데이터 적재 상태를 확인한다.
+model BookSyncLog {
+  id BigInt @id @default(autoincrement())
+
+  /// 전체 적재 또는 증분 동기화 여부
+  syncType BookSyncType @map("sync_type")
+
+  /// Work / Edition / Author 중 이번 동기화 대상
+  target BookSyncTarget
+
+  /// 현재 동기화 작업 상태
+  status BookSyncStatus
+
+  /// 처리한 전체 레코드 수
+  processed Int @default(0)
+
+  /// 신규 생성된 레코드 수
+  created Int @default(0)
+
+  /// 기존 데이터가 갱신된 레코드 수
+  updated Int @default(0)
+
+  /// 처리 중 실패한 레코드 수
+  failed Int @default(0)
+
+  /// 동기화 시작 시각
+  startedAt DateTime @default(now()) @map("started_at")
+
+  /// 동기화 완료 시각
+  finishedAt DateTime? @map("finished_at")
+
+  /// 동기화 실패 시 오류 내용
+  errorMessage String? @map("error_message") @db.Text
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([syncType, target])
+  @@map("book_sync_logs")
 }
