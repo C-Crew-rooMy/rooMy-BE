@@ -11,6 +11,7 @@ import { winstonLoggerOptions } from './common/logger/winston.logger';
 import { S3Module } from './common/s3/s3.module';
 
 import { AuthModule } from './auth/auth.module';
+import { BookModule } from './book/book.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     S3Module,
     AuthModule,
+    BookModule,
   ],
   controllers: [AppController],
   providers: [

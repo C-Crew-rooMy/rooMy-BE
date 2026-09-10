@@ -4,3 +4,5 @@ dist
 .env
 *.log
 coverage
+# Open Library dump files
+data/
