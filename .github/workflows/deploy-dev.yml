@@ -54,7 +54,7 @@ jobs:
           pm2 save
 
           for i in {1..10}; do
-            if curl -fsS http://localhost:3000/health > /dev/null; then
+            if curl -fsS http://localhost:3001/health > /dev/null; then
               echo "Health check passed"
               exit 0
             fi

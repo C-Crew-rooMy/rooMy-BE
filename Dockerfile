@@ -21,7 +21,7 @@ COPY . .
 RUN pnpm prisma generate
 
 # Nest 서버가 사용할 포트
-EXPOSE 3000
+EXPOSE 3001
 
 # 컨테이너 실행 시 개발 서버 실행
 CMD ["pnpm", "start:dev"]
