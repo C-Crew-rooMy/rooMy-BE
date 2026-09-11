@@ -13,6 +13,7 @@ import { S3Module } from './common/s3/s3.module';
 import { AuthModule } from './auth/auth.module';
 import { BookModule } from './book/book.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { MusicModule } from './music/music.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module';
     S3Module,
     AuthModule,
     BookModule,
+    MusicModule,
   ],
   controllers: [AppController],
   providers: [
