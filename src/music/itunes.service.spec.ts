@@ -1,7 +1,4 @@
-import {
-  BadGatewayException,
-  GatewayTimeoutException,
-} from '@nestjs/common';
+import { BadGatewayException, GatewayTimeoutException } from '@nestjs/common';
 
 import { ItunesService } from './itunes.service';
 
@@ -44,7 +41,8 @@ describe('ItunesService', () => {
     await expect(service.searchTracks('아이유')).resolves.toEqual(response);
 
     const [url, options] = fetchMock.mock.calls[0];
-    expect(String(url)).toBe(
+    expect(url).toBeInstanceOf(URL);
+    expect((url as URL).href).toBe(
       'https://itunes.test/search?term=%EC%95%84%EC%9D%B4%EC%9C%A0&country=kr&media=music&entity=song&limit=20',
     );
     expect(options?.signal).toBeDefined();

@@ -48,7 +48,9 @@ describe('MusicService', () => {
     const itunesService = {
       searchTracks: jest.fn().mockResolvedValue({
         resultCount: 1,
-        results: [{ trackId: 123, trackName: '곡명', artistName: '아티스트명' }],
+        results: [
+          { trackId: 123, trackName: '곡명', artistName: '아티스트명' },
+        ],
       }),
     } as unknown as ItunesService;
     const service = new MusicService(itunesService);

@@ -12,7 +12,21 @@ describe('Music API (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true }), MusicModule],
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          ignoreEnvFile: true,
+          load: [
+            () => ({
+              ITUNES_SEARCH_BASE_URL: 'https://itunes.test/search',
+              ITUNES_COUNTRY: 'kr',
+              ITUNES_SEARCH_LIMIT: '20',
+              ITUNES_REQUEST_TIMEOUT_MS: '5000',
+            }),
+          ],
+        }),
+        MusicModule,
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
